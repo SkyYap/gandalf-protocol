@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.7.6;
+pragma solidity ^0.8.24;
 
 interface IGandalfPool {
     /// @notice Allows the user to buy gandalf token using any amount of token0 and token1

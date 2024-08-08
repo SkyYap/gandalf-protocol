@@ -1,20 +1,34 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.7.6;
-pragma abicoder v2;
+pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+// Has been removed and replaced to utils
+// import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+// Don't need SafeMath anymore since Solidity 0.8.0
+// import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+
+// Upgradeable contracts doesn't contain interfaces anymore
+// import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts/interfaces/IERC20.sol";
+
+// Has been removed and renamed
+// import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/SafeERC20Upgradeable.sol";
+
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
+
+// Importing Solidity 0.8.0 for Uniswap libraries
+// import "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+// import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "./uniswap/v3-core/FullMath.sol";
+import "./uniswap/v3-core/TickMath.sol";
+import "./uniswap/v3-periphery/INonfungiblePositionManager.sol";
+import "./uniswap/v3-periphery/ISwapRouter.sol";
+import "./uniswap/v3-periphery/LiquidityAmounts.sol";
 import "./interfaces/IGandalfPool.sol";
 
 contract GandalfPool is
@@ -23,8 +37,8 @@ contract GandalfPool is
     ERC20Upgradeable,
     IGandalfPool
 {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
-    using SafeMathUpgradeable for uint256;
+    // using ERC20Upgradeable for IERC20;
+    // using SafeMathUpgradeable for uint256;
 
     uint24 private constant FEE_DENOMINATOR = 1_000_000;
     uint24 private constant SLIPPAGE_DENOMINATOR = 1_000_000;
@@ -82,28 +96,40 @@ contract GandalfPool is
         uint24 desiredTickRange_,
         uint24 gandalfPoolFeeNumerator_
     ) external initializer {
-        __Ownable_init();
+        __Ownable_init(owner_);
         __ERC20_init(name_, symbol_);
         transferOwnership(owner_);
 
-        uniswapV3FactoryAddress = uniswapV3FactoryAddress_;
-        uniswapV3SwapRouterAddress = uniswapV3SwapRouterAddress_;
-        uniswapV3PositionManagerAddress = uniswapV3PositionManagerAddress_;
         uniswapV3PoolFee = uniswapV3PoolFee_;
         uniswapV3PoolAddress = IUniswapV3Factory(uniswapV3FactoryAddress_).getPool(tokenA_, tokenB_, uniswapV3PoolFee_);
 
         require(uniswapV3PoolAddress != address(0), "Pool does not exist");
 
+        _initializeUniswapAddresses(
+            uniswapV3FactoryAddress_,
+            uniswapV3SwapRouterAddress_,
+            uniswapV3PositionManagerAddress_
+        );
         _setGandalfPoolFeeNumerator(gandalfPoolFeeNumerator_);
         _setUniswapV3PoolSlippageNumerator(uniswapV3PoolSlippageNumerator_);
         _setDesiredTickRange(desiredTickRange_);
 
         (token0, token1) = getTokensSorted(tokenA_, tokenB_);
 
-        IERC20Upgradeable(token0).approve(uniswapV3SwapRouterAddress_, type(uint256).max);
-        IERC20Upgradeable(token0).approve(uniswapV3PositionManagerAddress_, type(uint256).max);
-        IERC20Upgradeable(token1).approve(uniswapV3SwapRouterAddress_, type(uint256).max);
-        IERC20Upgradeable(token1).approve(uniswapV3PositionManagerAddress_, type(uint256).max);
+        IERC20(token0).approve(uniswapV3SwapRouterAddress_, type(uint256).max);
+        IERC20(token0).approve(uniswapV3PositionManagerAddress_, type(uint256).max);
+        IERC20(token1).approve(uniswapV3SwapRouterAddress_, type(uint256).max);
+        IERC20(token1).approve(uniswapV3PositionManagerAddress_, type(uint256).max);
+    }
+
+    function _initializeUniswapAddresses(
+        address uniswapV3FactoryAddress_,
+        address uniswapV3SwapRouterAddress_,
+        address uniswapV3PositionManagerAddress_
+    ) internal {
+        uniswapV3FactoryAddress = uniswapV3FactoryAddress_;
+        uniswapV3SwapRouterAddress = uniswapV3SwapRouterAddress_;
+        uniswapV3PositionManagerAddress = uniswapV3PositionManagerAddress_;
     }
 
     /// @notice Allows the user to buy gandalf token using any amount of token0 and token1
@@ -113,7 +139,7 @@ contract GandalfPool is
     /// @param minGandalfTokenAmount The minimum amount of the Gandalf token the user is willing to receive
     /// @param deadline The timestamp at which the transaction will expire
     function buyGandalfToken(uint256 token0Amount, uint256 token1Amount, uint256 minGandalfTokenAmount, uint256 deadline) external override {
-        require(token0Amount.add(token1Amount) > 0, "Sum of token amounts must be greater than zero");
+        require(token0Amount + token1Amount > 0, "Sum of token amounts must be greater than zero");
         require(deadline >= block.timestamp, "Transaction deadline expired");
 
         uint256 gandalfTokenAmountToReceive;
@@ -124,7 +150,7 @@ contract GandalfPool is
             
             uint256 totalValueInToken0After = getTotalValueInToken0();
 
-            gandalfTokenAmountToReceive = (totalValueInToken0After.sub(totalValueInToken0Before)).mul(totalSupply()).mul((FEE_DENOMINATOR - gandalfPoolFeeNumerator)).div(totalValueInToken0Before).div(FEE_DENOMINATOR);
+            gandalfTokenAmountToReceive = (totalValueInToken0After - totalValueInToken0Before) * totalSupply() * (FEE_DENOMINATOR - gandalfPoolFeeNumerator) / totalValueInToken0Before / FEE_DENOMINATOR;
         } else {
             _transferTokensFromUser(token0Amount, token1Amount);
 
@@ -149,7 +175,7 @@ contract GandalfPool is
 
         uint256 tokenAmountToReceiveBeforeFee = getTokenAmountToReceiveFromSell(gandalfTokenAmount, receiveInToken0);
         
-        uint128 decreaseLiquidityAmount = uint128(uint256(getLiquidityPositionLiquidityAmount()).mul(gandalfTokenAmount).div(totalSupply()));
+        uint128 decreaseLiquidityAmount = uint128(uint256(getLiquidityPositionLiquidityAmount()) * gandalfTokenAmount / totalSupply());
 
         _decreaseLiquidityPosition(decreaseLiquidityAmount);
 
@@ -157,17 +183,17 @@ contract GandalfPool is
 
         (address tokenIn, address tokenOut) = receiveInToken0 ? (token1, token0) : (token0, token1);
 
-        _swapExactInput(tokenIn, tokenOut, IERC20Upgradeable(tokenIn).balanceOf(address(this)));
+        _swapExactInput(tokenIn, tokenOut, IERC20(tokenIn).balanceOf(address(this)));
 
-        if(tokenAmountToReceiveBeforeFee > IERC20Upgradeable(tokenOut).balanceOf(address(this))) {
-            tokenAmountToReceiveBeforeFee = IERC20Upgradeable(tokenOut).balanceOf(address(this));
+        if(tokenAmountToReceiveBeforeFee > IERC20(tokenOut).balanceOf(address(this))) {
+            tokenAmountToReceiveBeforeFee = IERC20(tokenOut).balanceOf(address(this));
         }
 
-        uint256 tokenAmountToReceiveAfterFee = tokenAmountToReceiveBeforeFee.mul(FEE_DENOMINATOR - gandalfPoolFeeNumerator).div(FEE_DENOMINATOR);
+        uint256 tokenAmountToReceiveAfterFee = tokenAmountToReceiveBeforeFee * (FEE_DENOMINATOR - gandalfPoolFeeNumerator) / FEE_DENOMINATOR;
       
         require(tokenAmountToReceiveAfterFee >= minTokenAmountToReceive, "Minimum token amount cannot be met");
 
-        IERC20Upgradeable(tokenOut).safeTransfer(msg.sender, tokenAmountToReceiveAfterFee);
+        IERC20(tokenOut).transfer(msg.sender, tokenAmountToReceiveAfterFee);
 
         _burn(msg.sender, gandalfTokenAmount);
 
@@ -211,11 +237,11 @@ contract GandalfPool is
     /// @param token1Amount The amount of token1 to transfer from the user to this contract
     function _transferTokensFromUser(uint256 token0Amount, uint256 token1Amount) private {
         if(token0Amount > 0) {
-            IERC20Upgradeable(token0).safeTransferFrom(msg.sender, address(this), token0Amount);
+            IERC20(token0).transferFrom(msg.sender, address(this), token0Amount);
         }
 
         if(token1Amount > 0) {
-            IERC20Upgradeable(token1).safeTransferFrom(msg.sender, address(this), token1Amount);
+            IERC20(token1).transferFrom(msg.sender, address(this), token1Amount);
         }
     }
 
@@ -255,17 +281,17 @@ contract GandalfPool is
     /// @notice Calculates the desired amounts of token0 and token1 to add liquidity,
     /// @notice then makes the necessary swaps and adds liquidity or mints a new position
     function _makeSwapsAndAddLiquidity() private {
-        uint256 actualToken0Amount = IERC20Upgradeable(token0).balanceOf(address(this));
-        uint256 actualToken1Amount = IERC20Upgradeable(token1).balanceOf(address(this));
+        uint256 actualToken0Amount = IERC20(token0).balanceOf(address(this));
+        uint256 actualToken1Amount = IERC20(token1).balanceOf(address(this));
 
         (uint256 desiredToken0Amount, uint256 desiredToken1Amount) = getDesiredReserveAmounts();
 
         if(desiredToken0Amount > actualToken0Amount && desiredToken1Amount < actualToken1Amount) {
             // Swap token1 for token0
-            _swapExactInput(token1, token0, actualToken1Amount.sub(desiredToken1Amount));
+            _swapExactInput(token1, token0, actualToken1Amount - desiredToken1Amount);
         } else if (desiredToken0Amount < actualToken0Amount && desiredToken1Amount > actualToken1Amount) {
             // Swap token0 for token1
-            _swapExactInput(token0, token1, actualToken0Amount.sub(desiredToken0Amount));
+            _swapExactInput(token0, token1, actualToken0Amount - desiredToken0Amount);
         }
 
         if(liquidityPositionTokenId > 0) {
@@ -284,8 +310,8 @@ contract GandalfPool is
         mintParams.fee = uniswapV3PoolFee;
         mintParams.tickLower = desiredTickLower;
         mintParams.tickUpper = desiredTickUpper;
-        mintParams.amount0Desired = IERC20Upgradeable(token0).balanceOf(address(this));
-        mintParams.amount1Desired = IERC20Upgradeable(token1).balanceOf(address(this));
+        mintParams.amount0Desired = IERC20(token0).balanceOf(address(this));
+        mintParams.amount1Desired = IERC20(token1).balanceOf(address(this));
         mintParams.amount0Min = 0;
         mintParams.amount1Min = 0;
         mintParams.recipient = address(this);
@@ -299,8 +325,8 @@ contract GandalfPool is
         INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams;
 
         increaseLiquidityParams.tokenId = liquidityPositionTokenId;
-        increaseLiquidityParams.amount0Desired = IERC20Upgradeable(token0).balanceOf(address(this));
-        increaseLiquidityParams.amount1Desired = IERC20Upgradeable(token1).balanceOf(address(this));
+        increaseLiquidityParams.amount0Desired = IERC20(token0).balanceOf(address(this));
+        increaseLiquidityParams.amount1Desired = IERC20(token1).balanceOf(address(this));
         increaseLiquidityParams.amount0Min = 0;
         increaseLiquidityParams.amount1Min = 0;
         increaseLiquidityParams.deadline = block.timestamp;
@@ -371,7 +397,7 @@ contract GandalfPool is
             }
         }
 
-        if(IERC20Upgradeable(token0).balanceOf(address(this)) > 0 || IERC20Upgradeable(token1).balanceOf(address(this)) > 0) {
+        if(IERC20(token0).balanceOf(address(this)) > 0 || IERC20(token1).balanceOf(address(this)) > 0) {
             _makeSwapsAndAddLiquidity();
         }
     }
@@ -400,9 +426,9 @@ contract GandalfPool is
     /// @return maxTokenAmountToReceive The max amount of the token the user could receive from sell
     function getTokenAmountToReceiveFromSell(uint256 gandalfTokenAmountSold, bool receiveInToken0) public view override returns (uint256 maxTokenAmountToReceive) {
         if(receiveInToken0) {
-            maxTokenAmountToReceive = getTotalValueInToken0().mul(gandalfTokenAmountSold).div(totalSupply());
+            maxTokenAmountToReceive = getTotalValueInToken0() * gandalfTokenAmountSold / totalSupply();
         } else {
-            maxTokenAmountToReceive = getTotalValueInToken1().mul(gandalfTokenAmountSold).div(totalSupply());
+            maxTokenAmountToReceive = getTotalValueInToken1() * gandalfTokenAmountSold / totalSupply();
         }
     }
 
@@ -488,10 +514,10 @@ contract GandalfPool is
 
         if(tokenIn < tokenOut) {
             amountOut = FullMath.mulDiv(FullMath.mulDiv(amountIn, sqrtPriceX96, 2**96), sqrtPriceX96, 2**96) 
-                .mul(FEE_DENOMINATOR - fee).div(FEE_DENOMINATOR);
+                * (FEE_DENOMINATOR - fee) / FEE_DENOMINATOR;
         } else {
             amountOut = FullMath.mulDiv(FullMath.mulDiv(amountIn, 2**96, sqrtPriceX96), 2**96, sqrtPriceX96)
-                .mul(FEE_DENOMINATOR - fee).div(FEE_DENOMINATOR);
+                * (FEE_DENOMINATOR - fee) / (FEE_DENOMINATOR);
         }
     }
 
@@ -503,16 +529,16 @@ contract GandalfPool is
     function getAmountOutMinimum(address tokenIn, address tokenOut, uint256 amountIn) public view override returns (uint256 amountOutMinimum) {
         uint256 estimatedAmountOut = getEstimatedTokenOut(tokenIn, tokenOut, amountIn, uniswapV3PoolFee);
 
-        amountOutMinimum = estimatedAmountOut.mul(SLIPPAGE_DENOMINATOR - uniswapV3PoolSlippageNumerator).div(SLIPPAGE_DENOMINATOR);
+        amountOutMinimum = estimatedAmountOut * (SLIPPAGE_DENOMINATOR - uniswapV3PoolSlippageNumerator) / SLIPPAGE_DENOMINATOR;
     }
 
     /// @notice Gets the value of token0 and token1 held by this contract in terms of token0 value
     /// @return The reserve value relative to token0
     function getReserveValueInToken0() public view override returns (uint256) {
-        uint256 token0Balance = IERC20Upgradeable(token0).balanceOf(address(this));
-        uint256 token1Balance = IERC20Upgradeable(token1).balanceOf(address(this));
+        uint256 token0Balance = IERC20(token0).balanceOf(address(this));
+        uint256 token1Balance = IERC20(token1).balanceOf(address(this));
 
-        return token0Balance.add(getEstimatedTokenOut(token1, token0, token1Balance, uniswapV3PoolFee));
+        return token0Balance + getEstimatedTokenOut(token1, token0, token1Balance, uniswapV3PoolFee);
     }
 
     /// @notice Gets the value of token0 and token1 held by the liquidity position in terms of token0 value
@@ -525,13 +551,13 @@ contract GandalfPool is
             getLiquidityPositionLiquidityAmount()
         );
 
-        return amount0.add(getEstimatedTokenOut(token1, token0, amount1, 0));
+        return amount0 + getEstimatedTokenOut(token1, token0, amount1, 0);
     }
 
     /// @notice Gets the total value (reserves + liquidity position) in terms of token 0 value
     /// @return The total value relative to token0
     function getTotalValueInToken0() public view override returns (uint256) {
-        return getReserveValueInToken0().add(getLiquidityPositionValueInToken0());
+        return getReserveValueInToken0() + getLiquidityPositionValueInToken0();
     }
 
     /// @notice Gets the total value (reserves + liquidity position) in terms of token 0 value
@@ -678,13 +704,13 @@ contract GandalfPool is
     /// @notice Returns the price of the Gandalf token relative to token 0 scaled by 10^18
     /// @return The price in token 0 scaled by 10^18
     function getGandalfTokenPriceInToken0() public view override nonZeroSupply returns (uint256) {
-        return getTotalValueInToken0().mul(10 ** decimals()).div(totalSupply());
+        return getTotalValueInToken0() * (10 ** decimals()) / totalSupply();
     }
 
     /// @notice Returns the price of the Gandalf token relative to token 1 scaled by 10^18
     /// @return The price in token 1 scaled by 10^18
     function getGandalfTokenPriceInToken1() public view override nonZeroSupply returns (uint256) {
-        return getTotalValueInToken1().mul(10 ** decimals()).div(totalSupply());
+        return getTotalValueInToken1() * (10 ** decimals()) / totalSupply();
     }
 
     /// @notice Returns the fee denominator constant

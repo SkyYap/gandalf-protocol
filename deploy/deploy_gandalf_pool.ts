@@ -1,9 +1,8 @@
 import {HardhatRuntimeEnvironment} from 'hardhat/types';
 import {DeployFunction} from 'hardhat-deploy/types';
-import { deployContract } from 'ethereum-waffle';
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-const {deployments, getNamedAccounts} = hre;
+  const {deployments, getNamedAccounts} = hre;
   const {deploy} = deployments;
   const {deployer, owner} = await getNamedAccounts();
 
