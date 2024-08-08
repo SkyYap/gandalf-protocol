@@ -8,6 +8,7 @@ import "@typechain/hardhat";
 // import "@nomiclabs/hardhat-etherscan";
 import "hardhat-deploy";
 import "solidity-coverage";
+import "@nomicfoundation/hardhat-ignition";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -30,6 +31,8 @@ const config: HardhatUserConfig = {
         url: process.env.HARDHAT_MAINNET_FORKING_URL || "",
         blockNumber: 20477013,
       },
+    gas: 2100000,
+    gasPrice: 8000000000, 
     }
   },
   namedAccounts: {

@@ -13,6 +13,7 @@
   "author": "tbwebb22",
   "license": "MIT",
   "devDependencies": {
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.5",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@uniswap/v3-core": "^1.0.1",

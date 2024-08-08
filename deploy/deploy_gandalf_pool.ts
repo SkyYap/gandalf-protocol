@@ -1,11 +1,15 @@
-import {HardhatRuntimeEnvironment} from 'hardhat/types';
-import {DeployFunction} from 'hardhat-deploy/types';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
+import { DeployFunction } from 'hardhat-deploy/types';
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const {deployments, getNamedAccounts} = hre;
-  const {deploy} = deployments;
-  const {deployer, owner} = await getNamedAccounts();
+  const { deployments, getNamedAccounts } = hre;
+  const { deploy } = deployments;
+  const { deployer } = await getNamedAccounts();
 
+  console.log("Deployment script started...");
+  console.log(`Deployer address: ${deployer}`);
+
+  const owner: string = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
   const tokenName: string = "Gandalf Token";
   const tokenSymbol: string = "GLF";
   const uniswapV3FactoryAddress: string = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
@@ -18,9 +22,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const desiredTickRange: number = 600;
   const gandalfPoolFee: number = 3000; 
 
-  await deploy("GandalfPool", {
-    from: deployer,
-    proxy: {
+  try {
+    console.log("Attempting to deploy GandalfPool contract...");
+
+    const deployment = await deploy("GandalfPool", {
+      from: deployer,
+      proxy: {
         proxyContract: "OpenZeppelinTransparentProxy",
         execute: {
           methodName: "initialize",
@@ -39,8 +46,16 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             gandalfPoolFee
           ],
         }
-    }
-  });
-}
+      }
+    });
+
+    console.log(`GandalfPool contract deployed at address: ${deployment.address}`);
+    console.log(`Transaction Hash: ${deployment.transactionHash}`);
+
+  } catch (error) {
+    console.error("Deployment failed:", error);
+    process.exitCode = 1;
+  }
+};
 
 export default func;
